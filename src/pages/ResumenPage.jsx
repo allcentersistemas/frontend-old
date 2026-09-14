@@ -48,7 +48,6 @@ export function ResumenPage() {
   const [seguimientoSince, setSeguimientoSince] = useState('2026-09-09')
   const [seguimientoLive, setSeguimientoLive] = useState(false)
   const [liveNonce, setLiveNonce] = useState(0)
-  const [transmittingObraId, setTransmittingObraId] = useState(null)
 
   const roleNames = useMemo(
     () => (employee?.roles ?? []).map((r) => roleDisplayName(r.name)),
@@ -328,16 +327,6 @@ export function ResumenPage() {
             loading={seguimientoLoading}
             live={seguimientoLive}
             since={seguimientoSince}
-            transmittingObraId={transmittingObraId}
-            onTransmitirObra={async (biesseOrderId) => {
-              setTransmittingObraId(biesseOrderId)
-              try {
-                await systemApi.markObraTransmitido(biesseOrderId)
-                await loadSeguimiento()
-              } finally {
-                setTransmittingObraId(null)
-              }
-            }}
             onReconnectLive={() => setLiveNonce((n) => n + 1)}
           />
         </>

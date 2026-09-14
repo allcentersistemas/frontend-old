@@ -23,8 +23,8 @@ const COL_LABEL = {
   EN_ATENCION: 'Atención',
   COTIZADO: 'Cotizado',
   VENDIDO: 'Vendido',
-  OPTIMIZADO: 'Optimizado',
-  PRODUCCION: 'Transmitido',
+  OPTIMIZADO: 'Transmitido',
+  PRODUCCION: 'Producción',
   DESPACHO: 'Despacho',
   LISTO_PARA_ENTREGAR: 'Listo',
   ENTREGADO: 'Hoy',
@@ -171,8 +171,8 @@ function OrdenRow({ orden, nowTick }) {
   )
 }
 
-/** Card de XML en columnas de obra (Optimizado → Entregado). */
-function XmlCard({ item, nowTick, arrived, onTransmitir, transmittingId }) {
+/** Card de XML en columnas de obra (Transmitido → Entregado). */
+function XmlCard({ item, nowTick, arrived }) {
   const { proyecto, orden, estado } = item
   const name =
     orden.biesseOrderName ||
@@ -195,11 +195,6 @@ function XmlCard({ item, nowTick, arrived, onTransmitir, transmittingId }) {
     proyecto?.nombre ||
     (proyecto?.proyectoId != null ? `Proyecto #${proyecto.proyectoId}` : null) ||
     'Sin proyecto'
-  const canTransmit =
-    estado === 'OPTIMIZADO' &&
-    orden.biesseOrderId != null &&
-    typeof onTransmitir === 'function'
-  const transmitting = transmittingId != null && Number(transmittingId) === Number(orden.biesseOrderId)
 
   return (
     <li
@@ -240,18 +235,6 @@ function XmlCard({ item, nowTick, arrived, onTransmitir, transmittingId }) {
         detail={orden.avanceCorteLabel || null}
         tone="cut"
       />
-      {canTransmit ? (
-        <div className="seguimiento-card__actions">
-          <button
-            type="button"
-            className="btn btn--primary btn--sm"
-            disabled={transmitting}
-            onClick={() => onTransmitir(orden.biesseOrderId, name)}
-          >
-            {transmitting ? 'Transmitiendo…' : 'Transmitir'}
-          </button>
-        </div>
-      ) : null}
     </li>
   )
 }
@@ -322,11 +305,8 @@ export function SeguimientoBoard({
   live = false,
   since = '2026-09-09',
   onReconnectLive,
-  onTransmitirObra,
-  transmittingObraId = null,
 }) {
   const sinceValue = since || '2026-09-09'
-  const [actionMsg, setActionMsg] = useState('')
   const prevXmlEstadosRef = useRef(new Map())
   const prevProyectoEstadosRef = useRef(new Map())
   const primedRef = useRef(false)
@@ -335,21 +315,6 @@ export function SeguimientoBoard({
   const [arrived, setArrived] = useState(() => new Set())
   const [fullscreen, setFullscreen] = useState(false)
   const [nowTick, setNowTick] = useState(() => Date.now())
-
-  async function handleTransmitir(biesseOrderId, name) {
-    if (!biesseOrderId || typeof onTransmitirObra !== 'function') return
-    const ok = window.confirm(
-      `¿Transmitir «${name || biesseOrderId}»?\n\nPasará de Optimizado a Transmitido (producción).`,
-    )
-    if (!ok) return
-    setActionMsg('')
-    try {
-      await onTransmitirObra(biesseOrderId)
-      setActionMsg(`Transmitido: ${name || `#${biesseOrderId}`}`)
-    } catch (err) {
-      setActionMsg(err instanceof Error ? err.message : 'No se pudo transmitir el XML.')
-    }
-  }
 
   useEffect(() => {
     const id = window.setInterval(() => setNowTick(Date.now()), 60_000)
@@ -645,12 +610,11 @@ export function SeguimientoBoard({
             </div>
             <p className="seguimiento-top__lead muted small">
               Tablero desde <strong>{sinceValue}</strong> (Gestión → Configuración). Cotizado máx. 48 h ·
-              Entregado solo hoy. En Optimizado use <strong>Transmitir</strong> para pasar a Transmitido.
+              Entregado solo hoy. Cada XML en un solo estado.
             </p>
             <p className="seguimiento-top__count muted small">
               {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalXml} XML en obra
             </p>
-            {actionMsg ? <p className="seguimiento-top__action muted small">{actionMsg}</p> : null}
           </div>
           <div className="seguimiento-top__aside">
             <div className="seguimiento-legend" aria-hidden>
@@ -756,8 +720,6 @@ export function SeguimientoBoard({
                           item={item}
                           nowTick={nowTick}
                           arrived={arrived}
-                          onTransmitir={handleTransmitir}
-                          transmittingId={transmittingObraId}
                         />
                       ))
                     ) : (

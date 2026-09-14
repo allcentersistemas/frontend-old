@@ -64,7 +64,7 @@ function ProyectoTreeSummary({
     ['En atención', tiempos?.enAtencion],
     ['Cotizado', tiempos?.cotizado],
     ['Vendido', tiempos?.vendido],
-    ['Optimizado', tiempos?.optimizado],
+    ['Transmitido', tiempos?.optimizado],
     ['Producción', tiempos?.produccion],
     ['Despacho', tiempos?.despacho],
     ['Listo para entregar', tiempos?.listoParaEntregar],
