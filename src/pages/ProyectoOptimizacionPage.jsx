@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { Save } from 'lucide-react'
 import * as systemApi from '../api/systemApi'
 import { DetailModal } from '../components/DetailModal.jsx'
 import {
@@ -305,6 +306,8 @@ export function ProyectoOptimizacionPage() {
   const cotizacionTargetIdRef = useRef(null)
   const planosInputRef = useRef(null)
   const planosTargetIdRef = useRef(null)
+  const xmlCorteInputRef = useRef(null)
+  const xmlCorteTargetIdRef = useRef(null)
   const [uploadProgress, setUploadProgress] = useState(null)
 
   const setTab = useCallback(
@@ -701,6 +704,43 @@ export function ProyectoOptimizacionPage() {
     return row?.estado === 'COTIZADO'
   }
 
+  function canSubirXmlCorte(row) {
+    return row?.estado === 'VENDIDO'
+  }
+
+  function promptUploadXmlCorte(rowId) {
+    xmlCorteTargetIdRef.current = rowId
+    xmlCorteInputRef.current?.click()
+  }
+
+  async function handleXmlCorteSelected(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    const rowId = xmlCorteTargetIdRef.current
+    xmlCorteTargetIdRef.current = null
+    if (!file || !rowId) return
+    const ok = window.confirm(
+      `¿Subir «${file.name}» como XML de corte?\n\nEl proyecto pasará a estado Optimizado.`,
+    )
+    if (!ok) return
+    setBusyId(rowId)
+    setActionMsg('')
+    try {
+      await systemApi.uploadProyectoXmlCorte(rowId, file)
+      setActionMsg('XML de corte subido. El proyecto pasó a estado Optimizado.')
+      await load()
+      if (detailRow?.id === rowId) {
+        const tree = await systemApi.getProyectoOptimizacion(rowId)
+        setDetailTree(tree)
+        setDetailRow((prev) => (prev ? { ...prev, estado: 'OPTIMIZADO' } : prev))
+      }
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'No se pudo subir el XML de corte.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   function canCapturar(row) {
     return canCapturarProyectoOptimizacion(row)
   }
@@ -738,6 +778,13 @@ export function ProyectoOptimizacionPage() {
         accept=".pdf,application/pdf"
         hidden
         onChange={(e) => void handlePlanosSelected(e)}
+      />
+      <input
+        ref={xmlCorteInputRef}
+        type="file"
+        accept=".xml,text/xml,application/xml"
+        hidden
+        onChange={(e) => void handleXmlCorteSelected(e)}
       />
       <ModuleHeader
         title="Proyecto optimización"
@@ -918,6 +965,17 @@ export function ProyectoOptimizacionPage() {
                                 onClick={() => void handleVendido(row)}
                               >
                                 Vendido
+                              </button>
+                            ) : null}
+                            {canSubirXmlCorte(row) ? (
+                              <button
+                                type="button"
+                                className="btn btn--primary"
+                                disabled={busyId === row.id}
+                                title="Subir XML de corte"
+                                onClick={() => promptUploadXmlCorte(row.id)}
+                              >
+                                <Save size={16} aria-hidden /> Subir XML de corte
                               </button>
                             ) : null}
                           </>
@@ -1106,6 +1164,17 @@ export function ProyectoOptimizacionPage() {
                       onClick={() => void handleVendido(detailRow)}
                     >
                       Vendido
+                    </button>
+                  ) : null}
+                  {canSubirXmlCorte(detailRow) ? (
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      disabled={busyId === detailRow.id}
+                      title="Subir XML de corte"
+                      onClick={() => promptUploadXmlCorte(detailRow.id)}
+                    >
+                      <Save size={16} aria-hidden /> Subir XML de corte
                     </button>
                   ) : null}
                 </>

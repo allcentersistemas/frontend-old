@@ -140,8 +140,8 @@ export function AuthProvider({ children }) {
       }
       const email = employee.email && String(employee.email).trim()
       if (email) {
+        // Solo X-Actor-Email (CORS). Inventario/pallets aceptan también este header.
         h['X-Actor-Email'] = email
-        h['X-User-Email'] = email
       }
       return h
     })

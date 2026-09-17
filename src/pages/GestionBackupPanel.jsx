@@ -29,6 +29,7 @@ function statusLabel(status) {
 function restoreOriginLabel(triggerType) {
   if (triggerType === 'RESTORE_SYSTEM') return 'app_db'
   if (triggerType === 'RESTORE_BIESSE') return 'obras'
+  if (triggerType === 'RESTORE_COMPLETE') return 'App completa'
   if (triggerType === 'RESTORE_UPLOAD_ZIP') return 'ZIP subido'
   if (triggerType === 'RESTORE_MEDIA') return 'Archivos (historial)'
   if (triggerType === 'RESTORE_MEDIA_UPLOAD') return 'Archivos (subido)'
@@ -45,6 +46,10 @@ function backupOriginLabel(triggerType) {
 
 function isMediaBackupFilename(name) {
   return Boolean(name?.startsWith('media_files_') && name.endsWith('.zip'))
+}
+
+function isCompleteBackupFilename(name) {
+  return Boolean(name?.startsWith('allcenter_backup_') && name.endsWith('.zip'))
 }
 
 export function GestionBackupPanel() {
@@ -406,18 +411,22 @@ export function GestionBackupPanel() {
   return (
     <>
       <p className="muted small" style={{ marginBottom: '1rem' }}>
-        Copias de seguridad de PostgreSQL (<code className="code-inline">app_db</code>
-        {config?.biesseConfigured ? ' y obras' : ''}) y, opcionalmente, archivos en disco
-        (cotizaciones en <code className="code-inline">optimizacion-media</code>, fotos RM en{' '}
-        <code className="code-inline">rm-media</code>). Por defecto: cada 24 h a las 3:00.
-        Los backups automáticos se revisan cada 15 minutos.
+        Backup completo de la app: PostgreSQL (<code className="code-inline">app_db</code>
+        {config?.biesseConfigured ? ' y obras' : ''}) más archivos en disco (cotizaciones y fotos RM).
+        En <strong>old</strong> genere el backup, descargue <code className="code-inline">allcenter_backup_*.zip</code>
+        y en <strong>new</strong> restáurelo (escribe RESTAURAR). Eso sobrescribe las bases del destino.
+        Por defecto: cada 24 h a las 3:00. Los automáticos se revisan cada 15 minutos.
       </p>
 
       {config && !config.pgDumpAvailable ? (
         <div className="card pad" style={{ marginBottom: '1rem', borderColor: 'var(--warn, #c90)' }}>
           <p className="form-inline-error" style={{ margin: 0 }}>
-            <strong>pg_dump no disponible</strong> en el servidor. En Docker, reconstruya module-system
-            (incluye postgresql-client).
+            <strong>pg_dump no disponible</strong> en el contenedor del backend (no en el de Postgres).
+            La base puede estar en otro recurso Coolify; igual hace falta{' '}
+            <code className="code-inline">postgresql-client</code> en{' '}
+            <code className="code-inline">allcenter-backend</code>. Reconstruya con Build Pack =
+            Dockerfile (o Railpack con <code className="code-inline">railpack.json</code>) y
+            redeploy. En logs busque: <code className="code-inline">Backup pg_dump:</code>.
           </p>
         </div>
       ) : null}
@@ -605,8 +614,8 @@ export function GestionBackupPanel() {
               onClick={() => void runBackupNow()}
             >
               {running
-                ? `Generando backup BD… ${progressPercent > 0 ? `${progressPercent}%` : ''}`
-                : 'Generar backup BD ahora'}
+                ? `Generando backup… ${progressPercent > 0 ? `${progressPercent}%` : ''}`
+                : 'Generar backup completo ahora'}
             </button>
             <button
               type="button"
@@ -685,7 +694,9 @@ export function GestionBackupPanel() {
                                     disabled={restoring || running || runningFiles}
                                     onClick={() => void restoreFromServer(row.id, f.name)}
                                   >
-                                    Restaurar BD
+                                    {isCompleteBackupFilename(f.name)
+                                      ? 'Restaurar app completa'
+                                      : 'Restaurar BD'}
                                   </button>
                                 )}
                               </span>
@@ -750,15 +761,17 @@ export function GestionBackupPanel() {
       </div>
 
       <div className="card pad form-section" style={{ marginTop: '1rem', borderColor: 'var(--warn, #c90)' }}>
-        <h2>Restaurar backup de base de datos</h2>
+        <h2>Restaurar backup de la app (old → new)</h2>
         <p className="muted small form-hint">
-          <strong>Peligro:</strong> sobrescribe los datos actuales de la base. Use solo en mantenimiento.
-          Archivos <code className="code-inline">app_db_*.sql.gz</code> restauran app_db;
-          <code className="code-inline">obras_*.sql.gz</code> restaura Biesse. También acepta ZIP del correo.
+          <strong>Peligro:</strong> sobrescribe los datos actuales. Use en mantenimiento.
+          Prefiera <code className="code-inline">allcenter_backup_*.zip</code> (bases + archivos).
+          También acepta <code className="code-inline">app_db_*.sql.gz</code>,{' '}
+          <code className="code-inline">obras_*.sql.gz</code> o el ZIP del correo.
+          Tras restaurar, reinicie el backend new.
         </p>
         <form onSubmit={(e) => void restoreFromUpload(e)}>
           <label className="field">
-            <span>Archivo local (.sql.gz o .zip)</span>
+            <span>Archivo local (allcenter_backup_*.zip, .sql.gz o ZIP)</span>
             <input
               type="file"
               accept=".sql.gz,.zip,application/gzip,application/zip"
@@ -778,7 +791,8 @@ export function GestionBackupPanel() {
           </label>
           <div className="form-actions">
             <button type="submit" className="btn btn--secondary" disabled={restoring || running || runningFiles || !restoreFile}>
-              {restoring ? `Restaurando BD… ${progressPercent > 0 ? `${progressPercent}%` : ''}` : 'Restaurar BD desde archivo'}
+              {restoring ? 'Restaurando…' : 'Restaurar app desde archivo'}
+              {restoring && progressPercent > 0 ? ` ${progressPercent}%` : restoring ? ' (subiendo/procesando…)' : ''}
             </button>
           </div>
         </form>

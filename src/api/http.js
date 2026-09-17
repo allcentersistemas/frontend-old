@@ -188,12 +188,14 @@ async function backendJson(apiBase, path, init, { mergeSystemHeaders = false } =
     }
   }
   const url = `${apiBase}${path.startsWith('/') ? '' : '/'}${path}`
-  let res = await fetch(url, {
+  const fetchInit = {
     ...rest,
     headers,
     credentials: 'omit',
     referrerPolicy: 'strict-origin-when-cross-origin',
-  })
+    cache: rest.cache ?? 'no-store',
+  }
+  let res = await fetch(url, fetchInit)
 
   if (res.status === 401 && !skipAuth && getStoredTokens()?.refreshToken) {
     const ok = await tryRefresh()
@@ -202,7 +204,7 @@ async function backendJson(apiBase, path, init, { mergeSystemHeaders = false } =
       if (t2?.accessToken) {
         headers.set('Authorization', `Bearer ${t2.accessToken}`)
       }
-      res = await fetch(url, { ...rest, headers })
+      res = await fetch(url, { ...fetchInit, headers })
     }
   }
 
