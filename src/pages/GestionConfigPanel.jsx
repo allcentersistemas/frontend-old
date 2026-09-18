@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext'
 import { canResetKardex, canViewGestionMenu, roleNamesFromEmployee } from '../auth/roles'
 import * as systemApi from '../api/systemApi'
 import { SeccionadorasConfigPanel } from './SeccionadorasConfigPanel.jsx'
+import { limaTodayIso } from '../utils/appDateTime.js'
 
 export function GestionConfigPanel() {
   const { employee } = useAuth()
@@ -165,6 +166,29 @@ export function GestionConfigPanel() {
       setOk('Fecha de inicio del Seguimiento guardada. El tablero usa este corte de inmediato.')
     } catch (e2) {
       setErr(e2?.message ?? 'No se pudo guardar la fecha de Seguimiento')
+    } finally {
+      setSavingSeguimiento(false)
+    }
+  }
+
+  async function resetSeguimientoDesdeHoy() {
+    const today = limaTodayIso()
+    const okConfirm = window.confirm(
+      `¿Reiniciar el tablero de Seguimiento desde hoy (${today})?\n\n` +
+        'El tablero quedará vacío salvo pedidos y XML de hoy en adelante.\n' +
+        'No borra proyectos, XML ni historial de planta: solo deja de mostrarlos en Resumen → Seguimiento.',
+    )
+    if (!okConfirm) return
+    setSavingSeguimiento(true)
+    setErr(null)
+    setOk(null)
+    try {
+      const updated = await systemApi.updateAppConfig({ seguimientoSince: today })
+      applyConfig(updated)
+      setSeguimientoSince(today)
+      setOk(`Seguimiento reiniciado desde ${today}. El tablero parte en cero.`)
+    } catch (e2) {
+      setErr(e2?.message ?? 'No se pudo reiniciar el Seguimiento')
     } finally {
       setSavingSeguimiento(false)
     }
@@ -389,9 +413,9 @@ export function GestionConfigPanel() {
       <div className="card pad form-section" style={{ marginBottom: '1rem' }}>
         <h2>Resumen → Seguimiento</h2>
         <p className="muted small form-hint">
-          Fecha desde la que el tablero muestra pedidos. Enviado, Atención, Vendido y XMLs de obra
-          anteriores a esta fecha no aparecen. Cotizado sigue limitado a 48 h y Entregado solo al día
-          actual.
+          Fecha desde la que el tablero muestra <strong>todos</strong> los pedidos y XML. Lo anterior
+          no aparece (no se borra). Tras migrar old → new, use <strong>Reiniciar desde hoy</strong>
+          para partir el tablero en cero. Cotizado sigue limitado a 48 h y Entregado solo al día actual.
         </p>
         <form onSubmit={submitSeguimientoConfig}>
           <div className="form-row-2" style={{ alignItems: 'flex-end' }}>
@@ -405,13 +429,21 @@ export function GestionConfigPanel() {
                 required
               />
             </label>
-            <div className="form-actions" style={{ marginTop: 0 }}>
+            <div className="form-actions" style={{ marginTop: 0, flexWrap: 'wrap', gap: '0.5rem' }}>
               <button
                 type="submit"
                 className="btn btn--primary"
                 disabled={savingSeguimiento || saving}
               >
                 {savingSeguimiento ? 'Guardando…' : 'Guardar fecha'}
+              </button>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                disabled={savingSeguimiento || saving}
+                onClick={() => void resetSeguimientoDesdeHoy()}
+              >
+                Reiniciar desde hoy
               </button>
             </div>
           </div>

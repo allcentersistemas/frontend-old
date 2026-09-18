@@ -99,6 +99,25 @@ export function formatRelativeTimeEs(value, now = new Date()) {
 }
 
 /**
+ * Día calendario en Lima como yyyy-MM-dd.
+ */
+export function limaTodayIso(now = new Date()) {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: APP_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now)
+  } catch {
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const d = String(now.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+}
+
+/**
  * Duración en el estado actual: "12m", "3h 20m", "2d 4h".
  * @param {string|number|Date|Array|null|undefined} since
  * @param {Date} [now]
