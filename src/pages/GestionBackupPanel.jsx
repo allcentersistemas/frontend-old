@@ -80,6 +80,8 @@ export function GestionBackupPanel() {
   const [restoreFile, setRestoreFile] = useState(null)
   const [restoreMediaConfirm, setRestoreMediaConfirm] = useState('')
   const [restoreMediaFile, setRestoreMediaFile] = useState(null)
+  /** false = solo añadir faltantes; true = sobrescribir existentes */
+  const [overwriteMedia, setOverwriteMedia] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [runningFiles, setRunningFiles] = useState(false)
 
@@ -226,7 +228,10 @@ export function GestionBackupPanel() {
       setErr('Escriba RESTAURAR para confirmar la restauración')
       return
     }
-    if (!window.confirm(`¿Restaurar ${filename}? Esto SOBRESCRIBE datos actuales.`)) {
+    const mediaNote = overwriteMedia
+      ? 'Los archivos de media se SOBRESCRIBIRÁN.'
+      : 'Los archivos de media solo se AÑADIRÁN (no se sobrescriben).'
+    if (!window.confirm(`¿Restaurar ${filename}? Esto SOBRESCRIBE las bases de datos. ${mediaNote}`)) {
       return
     }
     setRestoring(true)
@@ -239,6 +244,7 @@ export function GestionBackupPanel() {
         confirmText: 'RESTAURAR',
         runId,
         filename,
+        overwriteMedia,
       })
       const result = await systemApi.waitForBackupRun(started.id, {
         onProgress: (run) => {
@@ -266,7 +272,10 @@ export function GestionBackupPanel() {
       setErr('Escriba RESTAURAR para confirmar la restauración de archivos')
       return
     }
-    if (!window.confirm(`¿Restaurar archivos desde ${filename}? Esto SOBRESCRIBE cotizaciones y fotos RM actuales.`)) {
+    const mediaNote = overwriteMedia
+      ? 'Esto SOBRESCRIBE cotizaciones y fotos RM actuales.'
+      : 'Solo AÑADE archivos que no existan (no sobrescribe).'
+    if (!window.confirm(`¿Restaurar archivos desde ${filename}? ${mediaNote}`)) {
       return
     }
     setRestoring(true)
@@ -279,6 +288,7 @@ export function GestionBackupPanel() {
         confirmText: 'RESTAURAR',
         runId,
         filename,
+        overwriteMedia,
       })
       const result = await systemApi.waitForBackupRun(started.id, {
         onProgress: (run) => {
@@ -311,7 +321,10 @@ export function GestionBackupPanel() {
       setErr('Escriba RESTAURAR para confirmar la restauración de archivos')
       return
     }
-    if (!window.confirm('¿Restaurar archivos desde el ZIP subido? Esto SOBRESCRIBE cotizaciones y fotos RM.')) {
+    const mediaNote = overwriteMedia
+      ? 'Esto SOBRESCRIBE cotizaciones y fotos RM.'
+      : 'Solo AÑADE archivos que no existan (no sobrescribe).'
+    if (!window.confirm(`¿Restaurar archivos desde el ZIP subido? ${mediaNote}`)) {
       return
     }
     setRestoring(true)
@@ -320,7 +333,13 @@ export function GestionBackupPanel() {
     setErr(null)
     setOk(null)
     try {
-      const started = await systemApi.restoreMediaBackupUpload('RESTAURAR', restoreMediaFile)
+      const started = await systemApi.restoreMediaBackupUpload('RESTAURAR', restoreMediaFile, {
+        overwriteMedia,
+        onProgress: (pct) => {
+          setProgressPercent(pct)
+          setProgressStage(pct < 100 ? `Subiendo… ${pct}%` : 'Procesando en servidor…')
+        },
+      })
       const result = await systemApi.waitForBackupRun(started.id, {
         onProgress: (run) => {
           setProgressPercent(run.progressPercent ?? 0)
@@ -354,7 +373,10 @@ export function GestionBackupPanel() {
       setErr('Escriba RESTAURAR para confirmar la restauración')
       return
     }
-    if (!window.confirm('¿Restaurar desde archivo subido? Esto SOBRESCRIBE datos actuales.')) {
+    const mediaNote = overwriteMedia
+      ? 'Los archivos de media se SOBRESCRIBIRÁN.'
+      : 'Los archivos de media solo se AÑADIRÁN.'
+    if (!window.confirm(`¿Restaurar desde archivo subido? Esto SOBRESCRIBE las bases de datos. ${mediaNote}`)) {
       return
     }
     setRestoring(true)
@@ -363,7 +385,13 @@ export function GestionBackupPanel() {
     setErr(null)
     setOk(null)
     try {
-      const started = await systemApi.restoreBackupUpload('RESTAURAR', restoreFile)
+      const started = await systemApi.restoreBackupUpload('RESTAURAR', restoreFile, {
+        overwriteMedia,
+        onProgress: (pct) => {
+          setProgressPercent(pct)
+          setProgressStage(pct < 100 ? `Subiendo… ${pct}%` : 'Procesando en servidor…')
+        },
+      })
       const result = await systemApi.waitForBackupRun(started.id, {
         onProgress: (run) => {
           setProgressPercent(run.progressPercent ?? 0)
@@ -728,6 +756,20 @@ export function GestionBackupPanel() {
           Restaura cotizaciones y fotos RM desde <code className="code-inline">media_files_*.zip</code>.
           No modifica las bases de datos.
         </p>
+        <label className="field checkbox-field" style={{ marginBottom: '0.75rem' }}>
+          <input
+            type="checkbox"
+            checked={overwriteMedia}
+            onChange={(e) => setOverwriteMedia(e.target.checked)}
+            disabled={restoring || running || runningFiles}
+          />
+          <span>
+            Sobrescribir archivos existentes
+            <span className="muted small" style={{ display: 'block' }}>
+              Desmarcado (recomendado): solo añade los que faltan. Marcado: reemplaza todo lo que coincida en el ZIP.
+            </span>
+          </span>
+        </label>
         <form onSubmit={(e) => void restoreMediaFromUpload(e)}>
           <label className="field">
             <span>Archivo ZIP de archivos (media_files_*.zip)</span>
@@ -763,11 +805,11 @@ export function GestionBackupPanel() {
       <div className="card pad form-section" style={{ marginTop: '1rem', borderColor: 'var(--warn, #c90)' }}>
         <h2>Restaurar backup de la app (old → new)</h2>
         <p className="muted small form-hint">
-          <strong>Peligro:</strong> sobrescribe los datos actuales. Use en mantenimiento.
+          <strong>Peligro:</strong> sobrescribe las bases de datos. Use en mantenimiento.
           Prefiera <code className="code-inline">allcenter_backup_*.zip</code> (bases + archivos).
           También acepta <code className="code-inline">app_db_*.sql.gz</code>,{' '}
           <code className="code-inline">obras_*.sql.gz</code> o el ZIP del correo.
-          Tras restaurar, reinicie el backend new.
+          Tras restaurar, reinicie el backend. El checkbox de media (arriba) aplica también aquí.
         </p>
         <form onSubmit={(e) => void restoreFromUpload(e)}>
           <label className="field">

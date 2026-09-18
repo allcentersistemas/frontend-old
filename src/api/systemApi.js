@@ -1118,6 +1118,7 @@ export async function restoreBackupUpload(confirmText, file, opts = {}) {
   const form = new FormData()
   form.append('confirmText', confirmText)
   form.append('file', file)
+  form.append('overwriteMedia', opts.overwriteMedia ? 'true' : 'false')
   return systemUploadWithProgress('/api/admin/backup/restore/upload', form, {
     forceRefresh: true,
     onProgress: opts.onProgress,
@@ -1129,6 +1130,7 @@ export async function restoreMediaBackupUpload(confirmText, file, opts = {}) {
   const form = new FormData()
   form.append('confirmText', confirmText)
   form.append('file', file)
+  form.append('overwriteMedia', opts.overwriteMedia ? 'true' : 'false')
   return systemUploadWithProgress('/api/admin/backup/restore/files/upload', form, {
     forceRefresh: true,
     onProgress: opts.onProgress,
