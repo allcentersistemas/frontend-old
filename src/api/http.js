@@ -232,13 +232,16 @@ export async function systemJson(path, init) {
  * @param {{ onProgress?: (pct: number) => void, signal?: AbortSignal }} [opts]
  */
 export function systemUploadWithProgress(path, formData, opts = {}) {
-  const { onProgress, signal } = opts
+  const { onProgress, signal, forceRefresh = false } = opts
   const url = `${systemApiBase}${path.startsWith('/') ? '' : '/'}${path}`
 
   return new Promise(async (resolve, reject) => {
     try {
       const t = getStoredTokens()
-      if (t?.accessToken && isAccessTokenExpired(t.accessToken) && t.refreshToken) {
+      const needsRefresh =
+        Boolean(t?.refreshToken) &&
+        (forceRefresh || (t?.accessToken && isAccessTokenExpired(t.accessToken)))
+      if (needsRefresh) {
         await tryRefresh()
       }
     } catch (err) {

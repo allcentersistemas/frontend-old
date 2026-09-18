@@ -1114,40 +1114,26 @@ export async function restoreMediaBackupFromHistory(body) {
   })
 }
 
-export async function restoreBackupUpload(confirmText, file) {
+export async function restoreBackupUpload(confirmText, file, opts = {}) {
   const form = new FormData()
   form.append('confirmText', confirmText)
   form.append('file', file)
-  const tokens = getStoredTokens()
-  const url = `${systemApiBase}/api/admin/backup/restore/upload`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {},
-    body: form,
+  return systemUploadWithProgress('/api/admin/backup/restore/upload', form, {
+    forceRefresh: true,
+    onProgress: opts.onProgress,
+    signal: opts.signal,
   })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `HTTP ${res.status}`)
-  }
-  return res.json()
 }
 
-export async function restoreMediaBackupUpload(confirmText, file) {
+export async function restoreMediaBackupUpload(confirmText, file, opts = {}) {
   const form = new FormData()
   form.append('confirmText', confirmText)
   form.append('file', file)
-  const tokens = getStoredTokens()
-  const url = `${systemApiBase}/api/admin/backup/restore/files/upload`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {},
-    body: form,
+  return systemUploadWithProgress('/api/admin/backup/restore/files/upload', form, {
+    forceRefresh: true,
+    onProgress: opts.onProgress,
+    signal: opts.signal,
   })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `HTTP ${res.status}`)
-  }
-  return res.json()
 }
 
 export async function fetchRestoreHistory() {
