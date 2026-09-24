@@ -226,10 +226,64 @@ export async function systemJson(path, init) {
 }
 
 /**
+ * Descarga autenticada (blob) con refresh de JWT y reintento en 401.
+ * @param {string} path
+ * @returns {Promise<Blob>}
+ */
+export async function systemDownloadBlob(path) {
+  const headers = new Headers()
+  for (const [k, v] of Object.entries(collectSystemExtraHeaders())) {
+    headers.set(k, v)
+  }
+  for (const [k, v] of Object.entries(sessionClientHeaders())) {
+    headers.set(k, v)
+  }
+  let t = getStoredTokens()
+  if (t?.accessToken && isAccessTokenExpired(t.accessToken) && t.refreshToken) {
+    await tryRefresh()
+    t = getStoredTokens()
+  }
+  if (t?.accessToken) {
+    headers.set('Authorization', `Bearer ${t.accessToken}`)
+  }
+
+  const url = `${systemApiBase}${path.startsWith('/') ? '' : '/'}${path}`
+  const fetchInit = {
+    method: 'GET',
+    headers,
+    credentials: 'omit',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    cache: 'no-store',
+  }
+  let res = await fetch(url, fetchInit)
+
+  if (res.status === 401 && getStoredTokens()?.refreshToken) {
+    const ok = await tryRefresh()
+    if (ok) {
+      const t2 = getStoredTokens()
+      if (t2?.accessToken) {
+        headers.set('Authorization', `Bearer ${t2.accessToken}`)
+      }
+      res = await fetch(url, { ...fetchInit, headers })
+    }
+  }
+
+  if (!res.ok) {
+    const detail = await readErrorDetail(res)
+    throw new Error(detail || `HTTP ${res.status}`)
+  }
+  const blob = await res.blob()
+  if (!blob || blob.size === 0) {
+    throw new Error('El archivo llegó vacío. Puede que ya no esté en el servidor.')
+  }
+  return blob
+}
+
+/**
  * Subida multipart con progreso (0–100). Usa XHR porque fetch no expone upload progress.
  * @param {string} path
  * @param {FormData} formData
- * @param {{ onProgress?: (pct: number) => void, signal?: AbortSignal }} [opts]
+ * @param {{ onProgress?: (pct: number) => void, signal?: AbortSignal, forceRefresh?: boolean }} [opts]
  */
 export function systemUploadWithProgress(path, formData, opts = {}) {
   const { onProgress, signal, forceRefresh = false } = opts

@@ -1,6 +1,6 @@
 import { sessionClientHeaders } from '../auth/clientSession'
 import { systemApiBase } from '../config/env'
-import { getStoredTokens, systemEventStream, systemJson, systemUploadWithProgress } from './http'
+import { getStoredTokens, systemDownloadBlob, systemEventStream, systemJson, systemUploadWithProgress } from './http'
 
 /* ——— Auth ——— */
 
@@ -1163,29 +1163,9 @@ export async function waitForBackupRun(runId, options = {}) {
 }
 
 export async function downloadBackupFile(runId, filename) {
-  const tokens = getStoredTokens()
-  const base = typeof window !== 'undefined' ? window.location.origin : ''
-  const apiPath = systemApiBase.startsWith('http') ? systemApiBase : `${base}${systemApiBase}`
-  const url = `${apiPath.replace(/\/+$/, '')}/api/admin/backup/history/${runId}/files/${encodeURIComponent(filename)}`
-  const res = await fetch(url, {
-    headers: tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {},
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    let message = `No se pudo descargar (${res.status})`
-    try {
-      const body = text ? JSON.parse(text) : null
-      if (body?.message) message = body.message
-      else if (text && text.length < 280) message = text
-    } catch {
-      if (text && text.length < 280) message = text
-    }
-    throw new Error(message)
-  }
-  const blob = await res.blob()
-  if (!blob || blob.size === 0) {
-    throw new Error('El archivo llegó vacío. Puede que ya no esté en el servidor.')
-  }
+  const blob = await systemDownloadBlob(
+    `/api/admin/backup/history/${runId}/files/${encodeURIComponent(filename)}`,
+  )
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = filename
